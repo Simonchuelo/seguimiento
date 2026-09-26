@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="description" content="Control diario de creatina e hidratación">
+
+<!-- PWA en Android -->
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+
+<!-- PWA en iOS (Safari) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Creatina">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<!-- Iconos -->
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
+<title>Mi Creatina y Agua</title>
+
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    margin: 0; padding: 16px;
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    background: linear-gradient(160deg, #0f172a, #1e293b);
+    color: #e2e8f0; min-height: 100vh;
+    overscroll-behavior-y: contain;
+  }
+  h1 { font-size: 22px; text-align: center; margin: 8px 0 20px; color: #38bdf8; }
+  .card {
+    background: #1e293b; border: 1px solid #334155; border-radius: 16px;
+    padding: 18px; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0,0,0,.3);
+  }
+  .card h2 { font-size: 17px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { font-size: 12px; padding: 3px 8px; border-radius: 20px; font-weight: 600; }
+  .ok { background: #166534; color: #bbf7d0; }
+  .pending { background: #78350f; color: #fde68a; }
+  .info { font-size: 14px; color: #94a3b8; line-height: 1.6; margin: 8px 0; }
+  .info b { color: #e2e8f0; }
+  button {
+    font-family: inherit; font-size: 15px; font-weight: 600;
+    border: none; border-radius: 10px; padding: 12px 16px;
+    cursor: pointer; transition: transform .1s, opacity .2s;
+    color: white;
+  }
+  button:active { transform: scale(.96); }
+  .btn-main { background: #0ea5e9; width: 100%; margin-top: 8px; }
+  .btn-main.done { background: #16a34a; }
+  .btn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 12px; }
+  .btn-water { background: #2563eb; padding: 14px 8px; font-size: 14px; }
+  .btn-small { background: #475569; padding: 8px 12px; font-size: 13px; }
+  .btn-small:active { transform: scale(.96); }
+  .progress {
+    height: 14px; background: #0f172a; border-radius: 10px;
+    overflow: hidden; margin: 12px 0 8px;
+  }
+  .progress-bar {
+    height: 100%; background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+    width: 0%; transition: width .4s ease; border-radius: 10px;
+  }
+  .progress-bar.full { background: linear-gradient(90deg, #16a34a, #22c55e); }
+  .stats { display: flex; justify-content: space-between; font-size: 14px; color: #94a3b8; }
+  .stats b { color: #e2e8f0; font-size: 16px; }
+  input[type="time"], input[type="number"] {
+    background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
+    border-radius: 8px; padding: 8px 10px; font-size: 15px; width: 100%;
+    font-family: inherit;
+  }
+  label { font-size: 13px; color: #94a3b8; display: block; margin: 10px 0 4px; }
+  .row { display: flex; gap: 8px; align-items: flex-end; }
+  .row > div { flex: 1; }
+  .streak { text-align: center; font-size: 14px; color: #94a3b8; margin-top: 8px; }
+  .streak b { color: #fbbf24; font-size: 18px; }
+  .log { font-size: 13px; color: #64748b; margin-top: 10px; max-height: 120px; overflow-y: auto; }
+  .log div { padding: 3px 0; border-bottom: 1px solid #1e293b; }
+
+  .chart {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    height: 140px; gap: 6px; padding: 10px 4px 0;
+    border-bottom: 1px solid #334155; margin-bottom: 8px;
+  }
+  .chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .chart-bar {
+    width: 100%; max-width: 32px; border-radius: 6px 6px 0 0;
+    background: linear-gradient(180deg, #38bdf8, #0ea5e9);
+    transition: height .5s ease; min-height: 3px;
+  }
+  .chart-bar.meta-ok { background: linear-gradient(180deg, #22c55e, #16a34a); }
+  .chart-bar.hoy { box-shadow: 0 0 0 2px #fbbf24; }
+  .chart-bar.empty { background: #334155; }
+  .chart-ml { font-size: 10px; color: #94a3b8; margin-top: 4px; }
+  .chart-labels { display: flex; justify-content: space-between; gap: 6px; }
+  .chart-day { flex: 1; text-align: center; font-size: 11px; color: #94a3b8; }
+  .chart-day.today { color: #fbbf24; font-weight: 700; }
+  .chart-dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:#16a34a; margin-left:2px; vertical-align:middle; }
+  .chart-summary { display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8; margin-top: 10px; padding-top: 8px; border-top: 1px solid #334155; }
+  .chart-summary b { color: #e2e8f0; }
+  .file-label {
+    display: block; text-align: center; cursor: pointer;
+    background: #475569; color: #fff; border-radius: 10px;
+    padding: 10px; font-size: 13px; font-weight: 600;
+  }
+  .file-label:active { transform: scale(.96); }
+  .hint { font-size: 11.5px; color: #64748b; line-height: 1.5; margin-top: 10px; }
+  #installBanner {
+    display: none; background: #0ea5e9; color: white;
+    border-radius: 10px; padding: 12px; margin-bottom: 16px;
+    font-size: 14px; font-weight: 600; text-align: center;
+    cursor: pointer;
+  }
+  #installBanner.show { display: block; }
+</style>
+</head>
+<body>
+
+<h1>💧 Mi Creatina y Agua</h1>
+
+<div id="installBanner">📲 Toca acá para instalar la app</div>
+
+<!-- CREATINA -->
+<div class="card">
+  <h2>🧪 Creatina <span id="creatinaBadge" class="badge pending">Pendiente</span></h2>
+  <div class="info">
+    <b>Preparación:</b> 5 g (1 scoop al ras)<br>
+    <b>Disolver en:</b> 200 – 300 ml de agua o jugo<br>
+    <b>Momento:</b> cualquier hora, todos los días
+  </div>
+  <button id="btnCreatina" class="btn-main">✅ Ya la tomé hoy</button>
+  <div class="streak">🔥 Racha: <b id="racha">0</b> días</div>
+  <label>Recordatorio diario a las:</label>
+  <input type="time" id="horaRecordatorio" value="09:00">
+  <button class="btn-small" style="width:100%;margin-top:8px" id="btnPermiso">
+    🔔 Activar notificaciones
+  </button>
+  <button class="btn-small" style="width:100%;margin-top:8px" id="btnTestVib">
+    📳 Probar vibración
+  </button>
+</div>
+
+<!-- AGUA -->
+<div class="card">
+  <h2>💧 Consumo de líquido</h2>
+  <div class="progress">
+    <div id="barraAgua" class="progress-bar"></div>
+  </div>
+  <div class="stats">
+    <span><b id="consumido">0</b> ml</span>
+    <span>Meta: <b id="metaTexto">2500</b> ml</span>
+  </div>
+
+  <div class="btn-grid">
+    <button class="btn-water" data-ml="375">+1.5 tazas (375 ml)</button>
+    <button class="btn-water" data-ml="250">+250 ml</button>
+    <button class="btn-water" data-ml="500">+500 ml</button>
+    <button class="btn-water" data-ml="1000">+1 L</button>
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <div>
+      <label>Cantidad personalizada (ml)</label>
+      <input type="number" id="customMl" placeholder="Ej: 330" min="1">
+    </div>
+    <button class="btn-small" id="btnCustom" style="height:41px">Agregar</button>
+  </div>
+  <button class="btn-small" style="width:100%;margin-top:12px" id="btnResetAgua">
+    🔄 Reiniciar agua del día
+  </button>
+  <label>Meta diaria de líquido (ml):</label>
+  <input type="number" id="metaInput" value="2500" min="500" step="100">
+  <div class="log" id="logAgua"></div>
+</div>
+
+<!-- RECORDATORIO DE AGUA -->
+<div class="card">
+  <h2>⏰ Recordatorio de hidratación</h2>
+  <div class="info">Dejalo vacío para desactivarlo.</div>
+  <label>Recordarme tomar agua a las:</label>
+  <input type="time" id="horaRecordatorioAgua">
+</div>
+
+<!-- GRÁFICO SEMANAL -->
+<div class="card">
+  <h2>📊 Últimos 7 días</h2>
+  <div class="chart" id="chart"></div>
+  <div class="chart-labels" id="chartLabels"></div>
+  <div class="chart-summary">
+    <span>Promedio: <b id="promedio">0</b> ml/día</span>
+    <span>Días con meta: <b id="diasMeta">0</b>/7</span>
+  </div>
+  <div class="chart-summary" style="border-top:none;padding-top:0">
+    <span>Creatina: <b id="creatinaSemana">0</b>/7 días</span>
+  </div>
+</div>
+
+<!-- DATOS -->
+<div class="card">
+  <h2>⚙️ Datos y respaldo</h2>
+  <div class="info">
+    Tus datos se guardan en este dispositivo. Hacé un respaldo cada tanto
+    (si borrás datos del navegador, se pierden).
+  </div>
+  <div class="btn-grid">
+    <button class="btn-small" id="btnExport">📤 Exportar</button>
+    <label class="file-label">
+      📥 Importar
+      <input type="file" id="fileImport" accept="application/json" hidden>
+    </label>
+  </div>
+  <div class="hint" id="resumenDatos"></div>
+</div>
+
+<script>
+/* ============================================================
+   FECHAS (hora LOCAL — evita bugs de UTC)
+   ============================================================ */
+const pad = n => String(n).padStart(2, '0');
+function fechaKey(d = new Date()) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/* ============================================================
+   ESTADO
+   ============================================================ */
+const STORAGE_KEY = 'creatinaApp_v2';
+const STORAGE_VIEJO = 'creatinaApp';
+
+let state = cargarEstado();
+migrarV1();
+
+function cargarEstado() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (e) {}
+  if (!s || typeof s !== 'object') s = {};
+  s.historial = s.historial && typeof s.historial === 'object' ? s.historial : {};
+  s.meta = Number(s.meta) || 2500;
+  s.horaRecordatorio = s.horaRecordatorio || '09:00';
+  s.horaRecordatorioAgua = s.horaRecordatorioAgua || '';
+  s.avisos = s.avisos || {};
+  return s;
+}
+
+function migrarV1() {
+  const raw = localStorage.getItem(STORAGE_VIEJO);
+  if (!raw) return;
+  if (localStorage.getItem(STORAGE_KEY)) return;
+  try {
+    const v = JSON.parse(raw);
+    const h = {};
+    if (v.historial) {
+      for (const [k, val] of Object.entries(v.historial)) {
+        h[k] = { agua: val.agua || 0, creatina: !!val.creatina, registros: [] };
+      }
+    }
+    if (v.fecha) {
+      h[v.fecha] = {
+        agua: v.agua || 0,
+        creatina: !!v.creatinaTomada,
+        registros: Array.isArray(v.registros) ? v.registros : []
+      };
+    }
+    state.historial = Object.assign(h, state.historial);
+    if (v.meta) state.meta = Number(v.meta) || state.meta;
+    if (v.horaRecordatorio) state.horaRecordatorio = v.horaRecordatorio;
+    guardar();
+    console.log('Datos migrados desde la versión anterior ✔');
+  } catch (e) {
+    console.warn('No se pudieron migrar los datos viejos:', e);
+  }
+}
+
+function dia(key = fechaKey()) {
+  if (!state.historial[key]) {
+    state.historial[key] = { agua: 0, creatina: false, registros: [] };
+  }
+  const d = state.historial[key];
+  if (!Array.isArray(d.registros)) d.registros = [];
+  if (typeof d.agua !== 'number') d.agua = 0;
+  d.creatina = !!d.creatina;
+  return d;
+}
+function leerDia(key) {
+  return state.historial[key] || { agua: 0, creatina: false, registros: [] };
+}
+
+function guardar() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.warn('No se pudo guardar:', e);
+  }
+}
+
+/* ============================================================
+   RACHA
+   ============================================================ */
+function calcularRacha() {
+  let racha = 0;
+  const d = new Date();
+  if (!leerDia(fechaKey(d)).creatina) d.setDate(d.getDate() - 1);
+  while (leerDia(fechaKey(d)).creatina) {
+    racha++;
+    d.setDate(d.getDate() - 1);
+    if (racha > 3650) break;
+  }
+  return racha;
+}
+
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+function vibrar(patron) {
+  if ('vibrate' in navigator) {
+    try { navigator.vibrate(patron); } catch (e) {}
+  }
+}
+
+function notificar(titulo, cuerpo, tag) {
+  if (!('Notification' in window)) {
+    alert(titulo + '\n' + cuerpo);
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    try {
+      new Notification(titulo, { body: cuerpo, icon: 'icon-192.png', tag: tag || 'creatina-app' });
+    } catch (e) { alert(titulo + '\n' + cuerpo); }
+  } else {
+    alert(titulo + '\n' + cuerpo);
+  }
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function render() {
+  const hoy = dia();
+
+  // Creatina
+  const badge = document.getElementById('creatinaBadge');
+  const btn = document.getElementById('btnCreatina');
+  if (hoy.creatina) {
+    badge.textContent = 'Tomada ✓';
+    badge.className = 'badge ok';
+    btn.textContent = '✅ Tomada hoy';
+    btn.classList.add('done');
+  } else {
+    badge.textContent = 'Pendiente';
+    badge.className = 'badge pending';
+    btn.textContent = '✅ Ya la tomé hoy';
+    btn.classList.remove('done');
+  }
+  document.getElementById('racha').textContent = calcularRacha();
+
+  // Agua
+  const pct = Math.min(100, (hoy.agua / state.meta) * 100);
+  const barra = document.getElementById('barraAgua');
+  barra.style.width = pct + '%';
+  barra.classList.toggle('full', pct >= 100);
+  document.getElementById('consumido').textContent = hoy.agua;
+  document.getElementById('metaTexto').textContent = state.meta;
+  document.getElementById('metaInput').value = state.meta;
+
+  const log = document.getElementById('logAgua');
+  log.innerHTML = hoy.registros.slice().reverse().map(r =>
+    `<div>${r.hora} — +${r.ml} ml</div>`
+  ).join('') || '<div style="color:#475569">Sin registros aún</div>';
+
+  // Inputs
+  document.getElementById('horaRecordatorio').value = state.horaRecordatorio;
+  document.getElementById('horaRecordatorioAgua').value = state.horaRecordatorioAgua;
+
+  // Resumen datos
+  const dias = Object.keys(state.historial).length;
+  document.getElementById('resumenDatos').textContent =
+    `Días registrados: ${dias}. Meta actual: ${state.meta} ml.`;
+
+  renderChart();
+}
+
+/* ============================================================
+   GRÁFICO SEMANAL
+   ============================================================ */
+function renderChart() {
+  const chart = document.getElementById('chart');
+  const labels = document.getElementById('chartLabels');
+  chart.innerHTML = '';
+  labels.innerHTML = '';
+
+  const nombres = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  const hoyKey = fechaKey();
+  const base = new Date();
+  const ultimos7 = [];
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(base);
+    d.setDate(d.getDate() - i);
+    const key = fechaKey(d);
+    const data = leerDia(key);
+    ultimos7.push({ key, date: d, agua: data.agua || 0, creatina: !!data.creatina });
+  }
+
+  const maxVal = Math.max(state.meta, ...ultimos7.map(d => d.agua), 1);
+  let totalAgua = 0, diasMeta = 0, diasCreatina = 0;
+
+  ultimos7.forEach(d => {
+    const alturaPct = (d.agua / maxVal) * 100;
+    const esHoy = d.key === hoyKey;
+    const cumplioMeta = d.agua >= state.meta;
+    if (cumplioMeta) diasMeta++;
+    if (d.creatina) diasCreatina++;
+    totalAgua += d.agua;
+
+    const col = document.createElement('div');
+    col.className = 'chart-col';
+
+    const bar = document.createElement('div');
+    bar.className = 'chart-bar';
+    if (d.agua === 0) bar.classList.add('empty');
+    else if (cumplioMeta) bar.classList.add('meta-ok');
+    if (esHoy) bar.classList.add('hoy');
+    bar.style.height = Math.max(alturaPct, 2) + '%';
+    bar.title = `${d.agua} ml${d.creatina ? ' ✓ creatina' : ''}`;
+    col.appendChild(bar);
+
+    const ml = document.createElement('div');
+    ml.className = 'chart-ml';
+    ml.textContent = d.agua > 0
+      ? (d.agua >= 1000 ? (d.agua / 1000).toFixed(1) + 'L' : d.agua)
+      : '-';
+    col.appendChild(ml);
+    chart.appendChild(col);
+
+    const lab = document.createElement('div');
+    lab.className = 'chart-day' + (esHoy ? ' today' : '');
+    lab.innerHTML = nombres[d.date.getDay()] + (d.creatina ? '<span class="chart-dot"></span>' : '');
+    labels.appendChild(lab);
+  });
+
+  document.getElementById('promedio').textContent = Math.round(totalAgua / 7);
+  document.getElementById('diasMeta').textContent = diasMeta;
+  document.getElementById('creatinaSemana').textContent = diasCreatina;
+}
+
+/* ============================================================
+   CREATINA
+   ============================================================ */
+document.getElementById('btnCreatina').onclick = () => {
+  const hoy = dia();
+  if (hoy.creatina) {
+    if (!confirm('¿Desmarcar la creatina de hoy?')) return;
+    hoy.creatina = false;
+  } else {
+    hoy.creatina = true;
+    vibrar([100, 50, 100]);
+  }
+  guardar();
+  render();
+};
+
+/* ============================================================
+   AGUA
+   ============================================================ */
+document.querySelectorAll('.btn-water').forEach(b => {
+  b.onclick = () => agregarAgua(parseInt(b.dataset.ml, 10));
+});
+
+document.getElementById('btnCustom').onclick = () => {
+  const input = document.getElementById('customMl');
+  const v = parseInt(input.value, 10);
+  if (v > 0) { agregarAgua(v); input.value = ''; }
+};
+
+function agregarAgua(ml) {
+  const hoy = dia();
+  hoy.agua += ml;
+  hoy.registros.push({
+    ml,
+    hora: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+  });
+  vibrar(40);
+  guardar();
+  render();
+}
+
+document.getElementById('btnResetAgua').onclick = () => {
+  if (confirm('¿Reiniciar el contador de agua de hoy?')) {
+    const hoy = dia();
+    hoy.agua = 0;
+    hoy.registros = [];
+    guardar();
+    render();
+  }
+};
+
+document.getElementById('metaInput').onchange = (e) => {
+  state.meta = parseInt(e.target.value, 10) || 2500;
+  guardar();
+  render();
+};
+
+/* ============================================================
+   RECORDATORIOS
+   ============================================================ */
+document.getElementById('horaRecordatorio').onchange = (e) => {
+  state.horaRecordatorio = e.target.value;
+  guardar();
+};
+
+document.getElementById('horaRecordatorioAgua').onchange = (e) => {
+  state.horaRecordatorioAgua = e.target.value;
+  guardar();
+};
+
+document.getElementById('btnPermiso').onclick = async () => {
+  if (!('Notification' in window)) {
+    alert('Tu navegador no soporta notificaciones.\nEn iPhone: instalá la app en la pantalla de inicio (iOS 16.4+).');
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  alert(perm === 'granted' ? '✅ Notificaciones activadas' : '❌ Permiso denegado');
+};
+
+document.getElementById('btnTestVib').onclick = () => {
+  vibrar([200, 100, 200, 100, 200]);
+  if (!('vibrate' in navigator)) alert('Tu dispositivo/navegador no soporta vibración.');
+};
+
+function chequearRecordatorios() {
+  const ahora = new Date();
+  const hhmm = `${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`;
+  const hoyKey = fechaKey(ahora);
+  let cambio = false;
+
+  // Creatina
+  if (state.horaRecordatorio === hhmm &&
+      state.avisos.creatina !== hoyKey &&
+      !leerDia(hoyKey).creatina) {
+    state.avisos.creatina = hoyKey;
+    cambio = true;
+    vibrar([300, 150, 300, 150, 300]);
+    notificar('🧪 Hora de la creatina', 'Recordá: 5 g en 200-300 ml de agua o jugo.', 'creatina');
+  }
+
+  // Agua
+  if (state.horaRecordatorioAgua &&
+      state.horaRecordatorioAgua === hhmm &&
+      state.avisos.agua !== hoyKey) {
+    state.avisos.agua = hoyKey;
+    cambio = true;
+    const d = leerDia(hoyKey);
+    if (d.agua < state.meta) {
+      vibrar([200, 100, 200]);
+      notificar('💧 Hora de hidratarte', `Llevás ${d.agua} ml de ${state.meta} ml.`, 'agua');
+    }
+  }
+
+  if (cambio) { guardar(); render(); }
+}
+
+setInterval(chequearRecordatorios, 20000);
+
+/* ============================================================
+   EXPORTAR / IMPORTAR
+   ============================================================ */
+document.getElementById('btnExport').onclick = () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `creatina-agua-${fechaKey()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+document.getElementById('fileImport').onchange = (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data || typeof data !== 'object' || !data.historial) {
+        throw new Error('No parece un respaldo válido');
+      }
+      if (!confirm('Esto reemplazará todos tus datos actuales. ¿Continuar?')) return;
+      state = data;
+      state.historial = state.historial || {};
+      state.meta = Number(state.meta) || 2500;
+      state.horaRecordatorio = state.horaRecordatorio || '09:00';
+      state.horaRecordatorioAgua = state.horaRecordatorioAgua || '';
+      state.avisos = state.avisos || {};
+      guardar();
+      render();
+      alert('✅ Datos importados correctamente');
+    } catch (err) {
+      alert('❌ Error al importar: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+};
+
+/* ============================================================
+   SERVICE WORKER
+   ============================================================ */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then((reg) => console.log('SW registrado ✔', reg.scope))
+      .catch((err) => console.warn('SW falló:', err));
+  });
+}
+
+/* ============================================================
+   INSTALACIÓN (banner "Añadir a pantalla de inicio")
+   ============================================================ */
+let deferredPrompt = null;
+const banner = document.getElementById('installBanner');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  banner.classList.add('show');
+});
+
+banner.onclick = async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  console.log('Instalación:', outcome);
+  deferredPrompt = null;
+  banner.classList.remove('show');
+};
+
+window.addEventListener('appinstalled', () => {
+  banner.classList.remove('show');
+  deferredPrompt = null;
+});
+
+/* ============================================================
+   INICIO
+   ============================================================ */
+render();
+setTimeout(chequearRecordatorios, 1500);
+</script>
+</body>
+</html>
